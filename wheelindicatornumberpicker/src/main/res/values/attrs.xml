@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <declare-styleable name="WheelIndicatorNumberPicker">
+        <attr name="winp_text_unselected_size" format="dimension" />
+        <attr name="winp_text_selected_size" format="dimension" />
+        <attr name="winp_text_unselected_color" format="color" />
+        <attr name="winp_text_selected_color" format="color" />
+
+        <attr name="winp_indicator_line_color" format="color" />
+        <attr name="winp_indicator_line_width" format="dimension" />
+        <attr name="winp_indicator_line_height" format="dimension" />
+        <attr name="winp_indicator_line_max_height" format="dimension" />
+        <attr name="winp_indicator_line_space" format="dimension" />
+        <attr name="winp_indicator_line_padding_with_text" format="dimension" />
+
+        <attr name="winp_circle_selected_color" format="color" />
+
+        <attr name="winp_progress" format="float" />
+        <attr name="winp_start_progress" format="float" />
+        <attr name="winp_min" format="float" />
+        <attr name="winp_max" format="float" />
+    </declare-styleable>
+
+</resources>
