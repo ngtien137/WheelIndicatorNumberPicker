@@ -80,6 +80,7 @@ class WheelIndicatorNumberPicker @JvmOverloads constructor(
 
     private var pointDown = PointF()
     private var isScrolling = false
+    private var currentDx = 0f
     private val scaleTouchSlop by lazy {
         ViewConfiguration.get(context).scaledTouchSlop
     }
@@ -97,11 +98,11 @@ class WheelIndicatorNumberPicker @JvmOverloads constructor(
             )
             paintSelectedText.textSize = ta.getDimension(
                 R.styleable.WheelIndicatorNumberPicker_winp_text_selected_size,
-                dpToPixel(9f)
+                dpToPixel(16f)
             )
             paintUnSelectedText.textSize = ta.getDimension(
                 R.styleable.WheelIndicatorNumberPicker_winp_text_unselected_size,
-                dpToPixel(9f)
+                dpToPixel(14f)
             )
 
             paintIndicatorLine.color = ta.getColor(
@@ -120,6 +121,7 @@ class WheelIndicatorNumberPicker @JvmOverloads constructor(
                 R.styleable.WheelIndicatorNumberPicker_winp_indicator_line_width,
                 dpToPixel(1f)
             )
+            paintIndicatorLine.strokeWidth = indicatorWidth
             indicatorSpace = ta.getDimension(
                 R.styleable.WheelIndicatorNumberPicker_winp_indicator_line_space,
                 dpToPixel(40f)
@@ -139,7 +141,7 @@ class WheelIndicatorNumberPicker @JvmOverloads constructor(
             )
 
             min = ta.getFloat(R.styleable.WheelIndicatorNumberPicker_winp_min, 0f)
-            max = ta.getFloat(R.styleable.WheelIndicatorNumberPicker_winp_min, 100f) + 1
+            max = ta.getFloat(R.styleable.WheelIndicatorNumberPicker_winp_max, 100f) + 1
             progress = ta.getFloat(R.styleable.WheelIndicatorNumberPicker_winp_progress, min)
 
             ta.recycle()
@@ -162,18 +164,29 @@ class WheelIndicatorNumberPicker @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas?) {
         canvas?.let { canvas ->
-            var startDrawProgress = ((scrollX % widthFullSize) / widthFullSize) * (max - min)
-            var offset = scrollX - (scrollX % widthFullSize) % indicatorSpace
+            val progressOfFullSize =
+                if (scrollX >= 0) scrollX % widthFullSize else widthFullSize - abs(scrollX) % widthFullSize
+            val startDrawProgress = (progressOfFullSize / widthFullSize) * (max - min)
+            var offset = scrollX - (progressOfFullSize % widthFullSize) % indicatorSpace
             val textUnSelectedCenter = rectView.centerY()
             var progressDraw = startDrawProgress
-            while (offset <= scrollX + rectView.width()) {
+            while (offset <= scrollX + rectView.width() + indicatorSpace) {
                 val textDraw = progressDraw.toInt().toString()
                 val textWidth = paintUnSelectedText.measureText(textDraw)
+                val bottomText = textUnSelectedCenter + rectText.height() / 2f
                 canvas.drawText(
                     textDraw,
                     offset - textWidth / 2f,
-                    textUnSelectedCenter - rectText.height() / 2f,
+                    bottomText,
                     paintUnSelectedText
+                )
+                val topLine = bottomText + indicatorPaddingText
+                canvas.drawLine(
+                    offset,
+                    topLine,
+                    offset,
+                    topLine + indicatorLineHeight,
+                    paintIndicatorLine
                 )
                 offset += indicatorSpace
                 progressDraw += 1
@@ -195,6 +208,7 @@ class WheelIndicatorNumberPicker @JvmOverloads constructor(
                 val disX = event.x - pointDown.x
                 return if (isScrolling) {
                     scroll(-disX.toInt())
+                    currentDx = disX
                     pointDown.set(event.x, event.y)
                     true
                 } else {
