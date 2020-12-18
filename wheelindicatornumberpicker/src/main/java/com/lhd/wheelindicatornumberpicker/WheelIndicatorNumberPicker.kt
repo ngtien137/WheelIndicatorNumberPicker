@@ -8,7 +8,10 @@ import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
+import android.view.animation.Animation
+import android.view.animation.Transformation
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 class WheelIndicatorNumberPicker @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
@@ -32,6 +35,8 @@ class WheelIndicatorNumberPicker @JvmOverloads constructor(
     private val paintSelectedCircle = Paint(Paint.ANTI_ALIAS_FLAG)
 
     private val paintTempSelectedCircle = Paint(Paint.ANTI_ALIAS_FLAG)
+
+    private var sizeSelectedCircle = 0f
 
     //endregion
 
@@ -78,6 +83,7 @@ class WheelIndicatorNumberPicker @JvmOverloads constructor(
 
     //endregion
 
+    private var isSnapSupported = true
     private var pointDown = PointF()
     private var isScrolling = false
     private var currentDx = 0f
@@ -139,6 +145,10 @@ class WheelIndicatorNumberPicker @JvmOverloads constructor(
                 R.styleable.WheelIndicatorNumberPicker_winp_circle_selected_color,
                 COLOR_CIRCLE_SELECTED
             )
+            sizeSelectedCircle = ta.getDimension(
+                R.styleable.WheelIndicatorNumberPicker_winp_circle_selected_full_size,
+                dpToPixel(40f)
+            )
 
             min = ta.getFloat(R.styleable.WheelIndicatorNumberPicker_winp_min, 0f)
             max = ta.getFloat(R.styleable.WheelIndicatorNumberPicker_winp_max, 100f) + 1
@@ -156,51 +166,122 @@ class WheelIndicatorNumberPicker @JvmOverloads constructor(
         paintSelectedText.getTextBounds("0", 0, 1, rectSelectedText)
         paintSelectedText.getTextBounds("0", 0, 1, rectText)
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+        post {
+            setProgress(0f)
+        }
     }
 
-    private fun convertCurrentScrollToProgress(): Float {
-        return 0f
-    }
-
+    @SuppressLint("DrawAllocation")
     override fun onDraw(canvas: Canvas?) {
         canvas?.let { canvas ->
             val progressOfFullSize =
                 if (scrollX >= 0) scrollX % widthFullSize else widthFullSize - abs(scrollX) % widthFullSize
             val startDrawProgress = (progressOfFullSize / widthFullSize) * (max - min)
-            var offset = scrollX - (progressOfFullSize % widthFullSize) % indicatorSpace
-            val textUnSelectedCenter = rectView.centerY()
+            var offset =
+                scrollX - (progressOfFullSize % widthFullSize) % indicatorSpace + (rectView.width() / 2f) % indicatorSpace
+            val textUnSelectedCenter =
+                rectView.centerY() - (rectText.height() + indicatorPaddingText + indicatorLineHeight * 2 - sizeSelectedCircle) / 2f
             var progressDraw = startDrawProgress
+            if (progressDraw > max)
+                progressDraw = max
+            val progressCenter = getProgressAtCenter()
+            val progressCurrent = progressCenter.toInt()
+            var progressNext = progressCurrent + 1
+            if (progressNext >= max)
+                progressNext = min.toInt()
+            canvas.drawLine(
+                scrollX + rectView.width() / 2f,
+                rectView.top,
+                scrollX + rectView.width() / 2f,
+                rectView.bottom,
+                paintIndicatorLine
+            )
             while (offset <= scrollX + rectView.width() + indicatorSpace) {
                 val textDraw = progressDraw.toInt().toString()
                 val textWidth = paintUnSelectedText.measureText(textDraw)
                 val bottomText = textUnSelectedCenter + rectText.height() / 2f
+                val centerText = bottomText - rectText.height() / 2f
+
+                val sizeOval: Float
+                var isSelected = false
+                val percent: Float
+                when {
+                    progressDraw.toInt() == progressCurrent -> {
+                        percent = 1 - abs(progressCenter % 1)
+                        paintSelectedCircle.alpha = (255 * percent).roundToInt()
+                        sizeOval = percent * sizeSelectedCircle
+                    }
+                    progressDraw.toInt() == progressNext -> {
+                        percent = abs(progressCenter % 1)
+                        paintSelectedCircle.alpha = (255 * percent).roundToInt()
+                        sizeOval = (percent * sizeSelectedCircle)
+                    }
+                    else -> {
+                        paintSelectedCircle.alpha = 255
+                        percent = 0f
+                        sizeOval = 0f
+                    }
+                }
+                if (sizeOval > sizeSelectedCircle / 2) {
+                    isSelected = true
+                }
+                val bottomOval = centerText + sizeOval / 2f
+                val rectOval = RectF(
+                    offset - sizeOval / 2f,
+                    centerText - sizeOval / 2f,
+                    offset + sizeOval / 2f,
+                    bottomOval
+                )
+                canvas.drawOval(rectOval, paintSelectedCircle)
+
+                val paintText = if (isSelected) paintSelectedText else paintUnSelectedText
+
                 canvas.drawText(
                     textDraw,
                     offset - textWidth / 2f,
                     bottomText,
-                    paintUnSelectedText
+                    paintText
                 )
-                val topLine = bottomText + indicatorPaddingText
+                var topLine = bottomText + indicatorPaddingText
+                if (bottomOval > topLine) {
+                    topLine = bottomOval + (indicatorPaddingText / 2f) * percent
+                }
                 canvas.drawLine(
                     offset,
                     topLine,
                     offset,
-                    topLine + indicatorLineHeight,
+                    topLine + indicatorLineHeight + indicatorLineHeight * percent,
                     paintIndicatorLine
                 )
                 offset += indicatorSpace
                 progressDraw += 1
-                if (progressDraw > max) {
+                if (progressDraw >= max) {
                     progressDraw = min
                 }
             }
         }
     }
 
+    private fun getProgressAtCenter(): Float {
+        val paddingByCenter = (rectView.width() / 2f) % indicatorSpace
+        val progressOfFullSize =
+            if (scrollX - paddingByCenter + rectView.width() / 2f >= 0) (scrollX - paddingByCenter + rectView.width() / 2f) % widthFullSize else widthFullSize - abs(
+                scrollX - paddingByCenter + rectView.width() / 2f
+            ) % widthFullSize
+        return (progressOfFullSize / widthFullSize) * (max - min)
+    }
+
+    private fun getStartProgressForDrawing(): Float {
+        val progressOfFullSize =
+            if (scrollX >= 0) scrollX % widthFullSize else widthFullSize - abs(scrollX) % widthFullSize
+        return (progressOfFullSize / widthFullSize) * (max - min)
+    }
+
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent?): Boolean {
         when (event?.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                anim?.cancel()
                 pointDown.set(event.x, event.y)
                 return true
             }
@@ -210,6 +291,9 @@ class WheelIndicatorNumberPicker @JvmOverloads constructor(
                     scroll(-disX.toInt())
                     currentDx = disX
                     pointDown.set(event.x, event.y)
+                    eLog("Progress: ${getProgressAtCenter()}")
+                    eLog("Scroll X: $scrollX")
+                    eLog("=====")
                     true
                 } else {
                     if (abs(disX) > scaleTouchSlop) {
@@ -223,6 +307,9 @@ class WheelIndicatorNumberPicker @JvmOverloads constructor(
             MotionEvent.ACTION_CANCEL, MotionEvent.ACTION_UP -> {
                 if (isScrolling) {
                     isScrolling = false
+                    if (isSnapSupported) {
+                        setProgressWithAnimation(getProgressAtCenter().roundToInt())
+                    }
                 }
             }
         }
@@ -232,5 +319,47 @@ class WheelIndicatorNumberPicker @JvmOverloads constructor(
     private fun scroll(disX: Int) {
         scrollBy(disX, 0)
     }
+
+    fun setProgress(progress: Float) {
+        val centerProgress = getProgressAtCenter()
+        val distanceTranslate = abs(centerProgress - progress) * indicatorSpace
+        if (progress < centerProgress) {
+            scroll(-distanceTranslate.toInt())
+        } else {
+            scroll(distanceTranslate.toInt())
+        }
+    }
+
+    private var anim: ProgressAnimation? = null
+    fun setProgressWithAnimation(progress: Int) {
+        anim = ProgressAnimation(this, getProgressAtCenter(), progress.toFloat())
+        anim?.startAnim(200)
+    }
+
+    class ProgressAnimation(
+        private val view: WheelIndicatorNumberPicker,
+        private var oldProgress: Float,
+        private var newProgress: Float
+    ) : Animation() {
+        private var currentProgress: Float = 0F
+
+        override fun applyTransformation(interpolatedTime: Float, t: Transformation?) {
+            val progress = oldProgress + (newProgress - oldProgress) * interpolatedTime
+            currentProgress = progress
+            view.setProgress(progress)
+        }
+
+        fun startAnim(duration: Long = 1000) {
+            setDuration(duration)
+            view.startAnimation(this)
+        }
+
+        override fun cancel() {
+            view.setProgress(currentProgress)
+            super.cancel()
+        }
+
+    }
+
 
 }

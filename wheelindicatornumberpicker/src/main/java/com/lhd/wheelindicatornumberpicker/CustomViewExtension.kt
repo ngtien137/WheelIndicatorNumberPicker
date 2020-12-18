@@ -1,8 +1,12 @@
 package com.lhd.wheelindicatornumberpicker
 
+import android.content.Context
 import android.graphics.*
+import android.os.Build
 import android.util.Log
 import android.view.View
+import androidx.annotation.FontRes
+import androidx.core.content.res.ResourcesCompat
 import java.math.BigDecimal
 
 
@@ -34,6 +38,15 @@ fun Rect.setCenter(cX: Number, cY: Number, sizeX: Number, sizeY: Number) {
     val width = sizeX.toInt()
     val height = sizeY.toInt()
     set(centerX - width / 2f, centerY - height / 2, centerX + width / 2, centerY + height / 2)
+}
+
+fun View.getTypeFaceById(@FontRes fontId: Int): Typeface? {
+    if (context == null)
+        return null
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        context.resources.getFont(fontId)
+    } else
+        ResourcesCompat.getFont(context, fontId)
 }
 
 var isLogEnable = true

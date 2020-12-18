@@ -15,6 +15,7 @@
         <attr name="winp_indicator_line_padding_with_text" format="dimension" />
 
         <attr name="winp_circle_selected_color" format="color" />
+        <attr name="winp_circle_selected_full_size" format="dimension" />
 
         <attr name="winp_progress" format="float" />
         <attr name="winp_start_progress" format="float" />
