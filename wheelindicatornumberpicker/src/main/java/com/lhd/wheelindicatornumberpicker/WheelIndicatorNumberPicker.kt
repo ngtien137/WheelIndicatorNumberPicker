@@ -336,6 +336,8 @@ class WheelIndicatorNumberPicker @JvmOverloads constructor(
         anim?.startAnim(200)
     }
 
+    fun getProgress() = getProgressAtCenter().toInt()
+
     class ProgressAnimation(
         private val view: WheelIndicatorNumberPicker,
         private var oldProgress: Float,
